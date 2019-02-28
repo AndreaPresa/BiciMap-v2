@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+        <item android:title="Mapa">
+            <menu>
+        <item
+            android:id="@+id/map_normal"
+            android:icon="@drawable/ic_menu_gallery"
+            android:title="Normal" />
+        <item
+            android:id="@+id/map_satelite"
+            android:icon="@drawable/ic_menu_gallery"
+            android:title="Satélite" />
+        <item
+            android:id="@+id/map_hibrido"
+            android:icon="@drawable/ic_menu_slideshow"
+            android:title="Híbrido" />
+        <item
+            android:id="@+id/contaminacionmap"
+            android:icon="@drawable/ic_menu_slideshow"
+            android:title="@string/contaminacion" />
+
+            </menu>
+        </item>
+    </group>
+
+    <group android:checkableBehavior="single">
+        <item android:title="@string/usuario">
+            <menu>
+                <item
+                    android:id="@+id/perfil"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/perfil" />
+                <item
+                    android:id="@+id/caminos"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/caminos" />
+                <item
+                    android:id="@+id/fav"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/fav" />
+
+            </menu>
+        </item>
+    </group>
+
+    <group android:checkableBehavior="single">
+        <item android:title="@string/ajustes">
+            <menu>
+                <item
+                    android:id="@+id/configuración"
+                    android:icon="@drawable/ic_menu_slideshow"
+                    android:title="@string/configuracion" />
+
+            </menu>
+        </item>
+    </group>
+
+    <item android:title="Communicate">
+        <menu>
+
+        </menu>
+    </item>
+
+</menu>

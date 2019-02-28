@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ContenedorPpal"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/colorPrimary">
+
+
+    <ImageView
+        android:id="@+id/bicimaps_inicio"
+        android:layout_width="268dp"
+        android:layout_height="189dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp"
+        android:scaleX="1.5"
+        android:scaleY="1.5"
+        android:src="@mipmap/ic_bicimap" />
+
+
+    <EditText
+        android:id="@+id/txt_memail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:hint="@string/user"
+        android:inputType="textEmailAddress"
+        android:textColorHint="#ffffff" />
+
+    <EditText android:id="@+id/txt_mpass"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/password"
+        android:textColorHint="#ffffff"
+        android:inputType="textPassword"
+        android:layout_gravity="center"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"/>
+
+
+    <RelativeLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center">
+
+        <Button android:id="@+id/BtnEntrar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/boton" />
+
+        <com.google.android.gms.common.SignInButton
+            android:id="@+id/BtnEntrarGoogle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@id/BtnEntrar"
+            />
+    </RelativeLayout>
+
+    <TextView android:id="@+id/Reg1Txt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/registro"
+        android:textColor="#ffffff"
+        android:paddingTop="10dp"/>
+
+
+    <TextView
+        android:id="@+id/Reg2Txt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/registro1"
+        android:textColor="#ffffff"
+        android:textStyle="bold" />
+
+
+    <Button
+        android:id="@+id/BtnNoRegistrar"
+        android:layout_marginTop="60dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/sinregistro" />
+
+
+</LinearLayout>
