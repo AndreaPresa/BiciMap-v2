@@ -2,11 +2,12 @@ package com.example.bicimap.FBDataFiles;
 
 import android.view.View;
 
-public class FBData {private double lat;
+public class FBData {
+    private double lat;
     private double lon;
     private int pm;
     private String dh;
-    private View mView;
+
     public FBData(){
 
     }
@@ -37,17 +38,17 @@ public class FBData {private double lat;
 
     public void setPm(int pm) { this.pm = pm; }
 
-    public String getDh() { return dh;}
+    public String dataDh() { return dh;}
 
     public void setDh(String dh) {this.dh = dh;}
 
-    public String getDate(){
-        String Date= getDh().substring(0,9);
+    public String dataDate(){
+        String Date= dataDh().substring(0,10);
         return Date;
     }
 
-    public String getTime(){
-        String Time= getDh().substring(11,18);
+    public String dataTime(){
+        String Time= dataDh().substring(11,19);
         return Time;
 
     }

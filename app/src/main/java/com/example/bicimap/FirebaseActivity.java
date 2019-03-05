@@ -1,6 +1,13 @@
 package com.example.bicimap;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
@@ -20,21 +27,26 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
+import static java.lang.System.currentTimeMillis;
+
 public class FirebaseActivity extends AppCompatActivity {
 
-/*
-    private static final String TAGLOG = "firebase-db";
-*/
+
+    private int CONEXION_WIFI=1;
+    private int CONEXION_DATOS_MOVILES=2;
+    private int SIN_CONEXION=0;
 
     private int contador_locs = 0;
     private RecyclerView recycler;
@@ -52,21 +64,43 @@ public class FirebaseActivity extends AppCompatActivity {
 
     private FirebaseRecyclerAdapter mAdapter;
 
-    private String dateFB = "Sin datos al mostrar";
-    private FileWriter writer;
-    private String fileName="DataBase.csv";
-    private BufferedWriter writer2;
-    private File myFile;
     private long count;
 
+    private String filePath="";
+
+    private String MAC_ADDRESS="";
+    private Context mContext;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_firebase);
+        mContext= FirebaseActivity.this;
 
-        //FirebaseApp.initializeApp(FirebaseActivity.this);
+        //Preferencias, para obtener MAC_ADDRESS
+        SharedPreferences datosUsuario=getSharedPreferences("Preferencias",MODE_PRIVATE);
+        SharedPreferences.Editor editor = datosUsuario.edit();
+        MAC_ADDRESS = datosUsuario.getString("MAC", MAC_ADDRESS);
+
+        //Archivo CSV
+            //Obtiene ruta de sdcard
+            File pathToExternalStorage = Environment.getExternalStorageDirectory();
+            //agrega directorio /myFiles
+            File appDirectory = new File(pathToExternalStorage.getAbsolutePath() + "/documents/");
+            //Crea archivo
+            File saveFilePath = new File(appDirectory, "DataBase.csv");
+
+            if(saveFilePath.exists()) {
+                filePath = datosUsuario.getString("CSV", filePath);
+            }else{
+                //Si no existe el directorio, se crea usando mkdirs() y se guarda en SharedPrefenrences
+                appDirectory.mkdirs();
+                filePath = saveFilePath.toString();
+                editor.putString("CSV", filePath);
+                editor.commit();
+            }
+
 
         //Creo el formato para apuntar la fecha y la hora del experimento en FB
         df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -89,7 +123,7 @@ public class FirebaseActivity extends AppCompatActivity {
             public void onClick(View view) {
                 dbReference =
                         FirebaseDatabase.getInstance().getReference()
-                                .child("locations").child(dateMaps);
+                                .child("locations").child(MAC_ADDRESS);
                 //dbLocations.removeValue();
                 Intent i = new Intent(FirebaseActivity.this, MainActivity.class);
 /*
@@ -130,20 +164,19 @@ public class FirebaseActivity extends AppCompatActivity {
                 newFBData.setDh(formattedDate);
 
                 //Identificador de tiempo en milisegundos
-                count = System.currentTimeMillis();
+                count = currentTimeMillis();
                 String contador = String.valueOf(count);
-                String loc_1 = "loc" + contador;
-                writeNewLocation(loc_1, newFBData);
+                writeNewLocation(contador, newFBData);
 
 
                 //VISUALIZACION
-                if (dateMaps != null) {
+                if (MAC_ADDRESS != null) {
 
                     mAdapter =
                             new FirebaseRecyclerAdapter<FBData, FBDataHolder>(
                                     FBData.class, R.layout.layout_fb_adapter,
                                     FBDataHolder.class,
-                                    dbReference.child(dateMaps)) {
+                                    dbReference.child(MAC_ADDRESS)) {
 
                                 @Override
                                 public void populateViewHolder(FBDataHolder viewHolder,
@@ -152,7 +185,7 @@ public class FirebaseActivity extends AppCompatActivity {
                                     viewHolder.setLatitud(data.getLat());
                                     viewHolder.setLongitud(data.getLon());
                                     viewHolder.setPM(data.getPm());
-                                    viewHolder.setDH(data.getDh());
+                                    viewHolder.setDH(data.dataDh());
 
                                 }
                             };
@@ -161,12 +194,18 @@ public class FirebaseActivity extends AppCompatActivity {
 
             }
             else if (intent.getBundleExtra("onlyRead") != null) {
+
+                int connectionState=isNetworkConnected(mContext);
+                if(connectionState==CONEXION_WIFI||connectionState==CONEXION_DATOS_MOVILES) {
+                    CSVtoFB();
+                }
+
                 Bundle b = intent.getBundleExtra("onlyRead");
                 dateMaps = b.getString("date");
                 dateTitle.setText(dateMaps);
                 mAdapter =
                         new FirebaseRecyclerAdapter<FBData, FBDataHolder>(
-                                FBData.class, R.layout.layout_fb_adapter, FBDataHolder.class, dbReference.child(dateMaps)) {
+                                FBData.class, R.layout.layout_fb_adapter, FBDataHolder.class, dbReference.child(MAC_ADDRESS)) {
 
 
                             @Override
@@ -174,7 +213,7 @@ public class FirebaseActivity extends AppCompatActivity {
                                 viewHolder.setLatitud(data.getLat());
                                 viewHolder.setLongitud(data.getLon());
                                 viewHolder.setPM(data.getPm());
-                                viewHolder.setDH(data.getDh());
+                                viewHolder.setDH(data.dataDh());
 
                             }
                         };
@@ -222,15 +261,20 @@ public class FirebaseActivity extends AppCompatActivity {
                 newFBData.setDh(formattedDate);
 
                 //Identificador de tiempo en milisegundos
-                count = System.currentTimeMillis();
+                count = currentTimeMillis();
                 String contador = String.valueOf(count);
-                String loc_1 = "loc" + contador;
-                writeNewLocation(loc_1, newFBData);
+                writeNewLocation(contador, newFBData);
 
 
             }
 
             else if (intent.getBundleExtra("onlyRead") != null) {
+
+                int connectionState=isNetworkConnected(mContext);
+                if(connectionState==CONEXION_WIFI||connectionState==CONEXION_DATOS_MOVILES) {
+                    CSVtoFB();
+                }
+
                 Bundle b =
                         intent.getBundleExtra("onlyRead");
                 dateMaps = b.getString("date");
@@ -239,7 +283,7 @@ public class FirebaseActivity extends AppCompatActivity {
                 if (!adapter_Flag) {
                     mAdapter =
                             new FirebaseRecyclerAdapter<FBData, FBDataHolder>(
-                                    FBData.class, R.layout.layout_fb_adapter, FBDataHolder.class, dbReference.child(dateMaps)) {
+                                    FBData.class, R.layout.layout_fb_adapter, FBDataHolder.class, dbReference.child(MAC_ADDRESS)) {
 
 
                                 @Override
@@ -247,7 +291,7 @@ public class FirebaseActivity extends AppCompatActivity {
                                     viewHolder.setLatitud(loc.getLat());
                                     viewHolder.setLongitud(loc.getLon());
                                     viewHolder.setPM(loc.getPm());
-                                    viewHolder.setDH(loc.getDh());
+                                    viewHolder.setDH(loc.dataDh());
 
                                 }
                             };
@@ -271,31 +315,30 @@ public class FirebaseActivity extends AppCompatActivity {
     }
 
     private void writeNewLocation(String locs, FBData loc) {
-        writeFirebase(locs, loc);
-        writeCSV(loc);
+        int connectionState=isNetworkConnected(mContext);
+        if(connectionState==CONEXION_WIFI){
+            writeFirebase(locs, loc);
+        }else if(connectionState==CONEXION_DATOS_MOVILES){
+            writeFirebase(locs, loc);
+        }else{
+            writeCSV(loc);
+        }
     }
 
     private void writeCSV(FBData loc) {
-        //Obtiene ruta de sdcard
-        File pathToExternalStorage = Environment.getExternalStorageDirectory();
-        //agrega directorio /myFiles
-        File appDirectory = new File(pathToExternalStorage.getAbsolutePath()+ "/documents/");
-        //Si no existe la estructura, se crea usando mkdirs()
-        appDirectory.mkdirs();
-        //Crea archivo
-        File saveFilePath = new File(appDirectory,"DataBase.csv");
-
         try {
-            FileOutputStream fos = new FileOutputStream(saveFilePath);
+            FileOutputStream fos = new FileOutputStream(filePath, true);
             OutputStreamWriter file = new OutputStreamWriter(fos);
-            file.append(loc.getDate());
-            file.append(";");
-            file.append(loc.getTime());
-            file.append(";");
+            file.append(String.valueOf(currentTimeMillis()));
+            file.append(",");
+            file.append(loc.dataDate());
+            file.append(",");
+            file.append(loc.dataTime());
+            file.append(",");
             file.append(String.valueOf(loc.getLat()));
-            file.append(";");
+            file.append(",");
             file.append(String.valueOf(loc.getLon()));
-            file.append(";");
+            file.append(",");
             file.append(String.valueOf(loc.getPm()));
             file.append("\n");
             file.flush();
@@ -310,12 +353,99 @@ public class FirebaseActivity extends AppCompatActivity {
 
     private void writeFirebase(String locs, FBData loc){
         //el metodo push() permite crear nuevos hijos sin sobreescribirlos
-        String dateFB = loc.getDh();
-        dateFB= dateFB.substring(0,10);
-        dbReference.push().child(dateFB);
-        dbReference.child(dateFB).push().child(locs);
-        dbReference.child(dateFB).child(locs).setValue(loc);
+        dbReference.push().child(MAC_ADDRESS);
+        dbReference.child(MAC_ADDRESS).push().child(locs);
+        dbReference.child(MAC_ADDRESS).child(locs).setValue(loc);
     }
 
+    public static int isNetworkConnected(Context context) {
+        final ConnectivityManager cm = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm != null) {
+            if (Build.VERSION.SDK_INT < 23) {
+                final NetworkInfo ni = cm.getActiveNetworkInfo();
+
+                if (ni != null) {
+                    if (ni.isConnected() && (ni.getType() == ConnectivityManager.TYPE_WIFI)) {
+                        return 1;
+                    } else if ((ni.getType() == ConnectivityManager.TYPE_MOBILE)) {
+                        return 2;
+                    }
+                }
+            } else {
+                final Network n = cm.getActiveNetwork();
+                if (n != null) {
+                    final NetworkCapabilities nc = cm.getNetworkCapabilities(n);
+                    if (nc.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)){
+                        return 2;
+                    }else if(nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)){
+                        return 1;
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private void CSVtoFB(){
+        String time="";
+        String lat="";
+        String lon="";
+        String pm="";
+        String aux="";
+        int c;
+        int contador=0;
+        try {
+
+        //BufferedReader reader = new BufferedReader(new FileReader(filePath));
+            FileReader reader = new FileReader(filePath);
+             while ((c=reader.read())!=-1){
+                 if(!(((char)c)==('\n'))) {
+                     if (((char)c )==(',')) {
+                         if (contador == 0) {
+                             time = aux;
+                             aux = "";
+                         } else if (contador == 1) {
+                             aux = "";
+                         } else if (contador == 2) {
+                             aux = "";
+                         } else if (contador == 3) {
+                             lat = aux;
+                             aux = "";
+                         } else if (contador == 4) {
+                             lon = aux;
+                             aux = "";
+                         }
+                         contador++;
+                     } else {
+                         aux = aux + (char)c ;
+                     }
+                 } else {
+                     pm = aux;
+                     aux = "";
+                     FBData newFBData = new FBData();
+                     newFBData.setLat(Double.parseDouble(lat));
+                     newFBData.setLon(Double.parseDouble(lon));
+                     newFBData.setPm(Integer.parseInt(pm));
+
+                     writeFirebase(time, newFBData);
+
+                     contador = 0;
+                 }
+             }
+
+            File file = new File(filePath);
+            file.delete();
+
+        } catch (FileNotFoundException e) {
+            Log.i("File not found",e.toString());
+        } catch (IOException e) {
+            Log.i("Error",e.toString());
+        }
+
+        Toast.makeText(getApplicationContext(), "Tu información ha sido añadida a la base de datos",
+                Toast.LENGTH_SHORT).show();
+
+    }
 
 }

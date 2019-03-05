@@ -106,6 +106,19 @@ public class MainActivity extends AppCompatActivity
         supportMapFragment.getMapAsync(this);
         mContext= MainActivity.this;
 
+        //PERMISOS
+
+        //Permiso de escritura
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE )!= PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},1024);
+        }
+
+        //permiso de localizacion
+        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PETICION_PERMISO_LOCALIZACION);
+        }
+
         //Preferencias
         SharedPreferences datosUsuario=getSharedPreferences("Preferencias",MODE_PRIVATE);
         SharedPreferences.Editor editor = datosUsuario.edit();
@@ -118,6 +131,7 @@ public class MainActivity extends AppCompatActivity
         Arrays.fill(PMData_array, -1);
         //Inicializo PM_FB_Counter
         PM_FB_counter=0;
+
         //Registro el Broadcast para recibir el dato de PM
         LocalBroadcastManager.getInstance(mContext).registerReceiver(mMessageReceiver,
                 new IntentFilter("PM_Data"));
@@ -130,13 +144,6 @@ public class MainActivity extends AppCompatActivity
 
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(mContext);
 
-        //permisos
-        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PETICION_PERMISO_LOCALIZACION);
-
-            return;
-        }
         //obtener localizacion
         mFusedLocationClient.getLastLocation()
                 .addOnSuccessListener(this, new OnSuccessListener<Location>() {
@@ -166,11 +173,13 @@ public class MainActivity extends AppCompatActivity
             }
         }, 2000);
 
-        //fecha
+        //fecha actual
         myCalendar= Calendar.getInstance();
         String myFormat = "dd-MM-yyyy";
         sdf = new SimpleDateFormat(myFormat, Locale.FRANCE);
         today = sdf.format(myCalendar.getTime());
+
+        //BOTONES
 
         //Boton localizacion
         location_onButton = findViewById(R.id.btn_Loc);
@@ -233,7 +242,7 @@ public class MainActivity extends AppCompatActivity
         });
 
 
-        //Comenzar recorrido
+        //Boton comenzar recorrido
 
         start_onButton = findViewById(R.id.btn_start);
         start_onButton.setVisibility(View.GONE);
