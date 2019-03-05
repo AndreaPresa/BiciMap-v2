@@ -2,6 +2,7 @@ package com.example.bicimap;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.app.DatePickerDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -14,21 +15,22 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
-import android.view.View;
-import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
+import android.widget.DatePicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -41,11 +43,22 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.TileOverlay;
+import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.maps.android.heatmaps.HeatmapTileProvider;
+import com.google.maps.android.heatmaps.WeightedLatLng;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity
@@ -94,7 +107,15 @@ public class MainActivity extends AppCompatActivity
     private Calendar myCalendar;
     private String today;
     private SimpleDateFormat sdf;
-    private String dateSpinner="fecha";
+    private String date="fecha";
+    private long dateMillis;
+    private long DIA_MILLIS=86400000;
+
+    //HeatMap
+    List<WeightedLatLng> latLngList=null;
+    private TileOverlay mOverlay;
+    private DatabaseReference dbLocations=null;
+    private DatabaseReference dbLocations1=null;
 
 
 
@@ -105,6 +126,8 @@ public class MainActivity extends AppCompatActivity
         SupportMapFragment supportMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         supportMapFragment.getMapAsync(this);
         mContext= MainActivity.this;
+
+        latLngList = new ArrayList<>();
 
         //PERMISOS
 
@@ -179,6 +202,7 @@ public class MainActivity extends AppCompatActivity
         sdf = new SimpleDateFormat(myFormat, Locale.FRANCE);
         today = sdf.format(myCalendar.getTime());
 
+
         //BOTONES
 
         //Boton localizacion
@@ -223,7 +247,7 @@ public class MainActivity extends AppCompatActivity
                     Intent intent = new Intent(MainActivity.this,
                             FirebaseActivity.class);
                     Bundle b = new Bundle();
-                    b.putString("date", dateSpinner);
+                    b.putString("date", date);
                     intent.putExtra("onlyRead",b);
                     startActivity(intent);
 
@@ -325,17 +349,6 @@ public class MainActivity extends AppCompatActivity
 
     }
 
-/*
-    protected synchronized void buildGoogleApiClient() {
-        client = new GoogleApiClient
-                .Builder(this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(LocationServices.API).build();
-        client.connect();
-
-    } */
-
     LocationListener locationListenerNetwork = new LocationListener() {
         @Override
         public void onLocationChanged(Location location) {
@@ -345,10 +358,7 @@ public class MainActivity extends AppCompatActivity
             Log.d("lat = ",""+latitud);
             LatLng latLng = new LatLng(latitud , longitud);
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
-            TextView lati=(TextView)findViewById(R.id.text_lat);
-            TextView longi=(TextView)findViewById(R.id.text_long);
-            lati.setText("Network" + longitud);
-            longi.setText("" + latitud);
+
         }
 
         public void onStatusChanged(String provider, int status, Bundle extras) {
@@ -375,10 +385,7 @@ public class MainActivity extends AppCompatActivity
             Log.d("lat = ",""+latitud);
             LatLng latLng = new LatLng(latitud , longitud);
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
-            TextView lati=(TextView)findViewById(R.id.text_lat);
-            TextView longi=(TextView)findViewById(R.id.text_long);
-            lati.setText("GPS" + longitud);
-            longi.setText("" + latitud);
+
         }
 
         public void onStatusChanged(String provider, int status, Bundle extras) {
@@ -533,22 +540,42 @@ public class MainActivity extends AppCompatActivity
     }
 
 
-    //Cambiar menu con spinners de bicimaps
-
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
+
+        final DatePickerDialog.OnDateSetListener newdate = new DatePickerDialog.OnDateSetListener() {
+            @Override
+            public void onDateSet(DatePicker view, int year, int monthOfYear,
+                                  int dayOfMonth) {
+                myCalendar.set(Calendar.YEAR, year);
+                myCalendar.set(Calendar.MONTH, monthOfYear);
+                myCalendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                updateLabel();
+            }
+
+        };
+
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
         if (id == R.id.map_normal) {
             mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+            removeHeatmap();
 
         } else if (id == R.id.map_satelite) {
             mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+            removeHeatmap();
 
         } else if (id == R.id.map_hibrido)  {
             mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+            removeHeatmap();
+
+        } else if (id == R.id.contaminacionmap)  {
+
+            new DatePickerDialog(MainActivity.this, R.style.MyDialogTheme,
+                    newdate, myCalendar.get(Calendar.YEAR), myCalendar.get(Calendar.MONTH),
+                    myCalendar.get(Calendar.DAY_OF_MONTH)).show();
 
         }
 
@@ -557,5 +584,94 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
+    private void addHeatMap(){
+
+        if(latLngList.size()!=0) {
+            HeatmapTileProvider mProvider = new HeatmapTileProvider.Builder()
+                    .weightedData(latLngList)
+                    .radius(25)
+                    .build();
+            mOverlay = mMap.addTileOverlay(new TileOverlayOptions().tileProvider(mProvider));
+            mOverlay.setVisible(true);
+        }
+
+
+    }
+
+    private void removeHeatmap(){
+        if(latLngList.size()!=0){
+            mOverlay.remove();
+        }
+    }
+
+    private void updateLabel() {
+
+        date = sdf.format(myCalendar.getTime());
+
+        dateMillis=DatetoMillis(date);
+
+        //Actualizo el valor de la referencia cada vez que se cambia de fecha
+
+        dbLocations1 = FirebaseDatabase.getInstance().getReference().child("locations");
+
+        dbLocations1.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
+
+                    String mac = postSnapshot.getKey();
+
+                    dbLocations = FirebaseDatabase.getInstance().getReference().child("locations").child(mac);
+
+                    dbLocations.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            if(latLngList!=null){
+                            latLngList.clear();
+                            }
+
+                            for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
+                                com.example.bicimap.FBDataFiles.FBData loc;
+                                loc = postSnapshot.getValue(com.example.bicimap.FBDataFiles.FBData.class);
+
+                                Long name = Long.parseLong(postSnapshot.getKey());
+
+                                if(name<(dateMillis+DIA_MILLIS)&&(name>(dateMillis-DIA_MILLIS))) {
+                                    LatLng latLng = new LatLng(loc.getLat(), loc.getLon());
+                                    WeightedLatLng data = new WeightedLatLng(latLng, loc.getPm());
+                                    latLngList.add(data);
+                                }
+                            }
+
+                            if(latLngList.size()== 0){
+                                Toast.makeText(mContext, "No hay datos para la fecha elegida", Toast.LENGTH_LONG).show(); } else {
+                                addHeatMap();
+                                }
+
+                        }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+                    }
+                    });
+
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    private long DatetoMillis(String date){
+        long Millis;
+        int año=Integer.parseInt(date.substring(6,10));
+        int mes=Integer.parseInt(date.substring(3,5));
+        int dia=Integer.parseInt(date.substring(0,2));
+        int diasbisiestos= (año-1970)/4;
+        Millis=((año-1970)*365+(mes-1)*365/12+dia+diasbisiestos-1)*DIA_MILLIS;
+    return Millis;}
 
 }

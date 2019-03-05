@@ -29,4 +29,10 @@
         <item name="android:background">@color/black_overlay</item>
     </style>
 
+    <style name="MyDialogTheme" parent="Theme.Design.BottomSheetDialog">
+        <item name="colorPrimary">#4caf50</item>
+        <item name="colorPrimaryDark">@color/colorPrimary</item>
+        <item name="colorAccent">@color/colorPrimary</item>
+    </style>
+
 </resources>
