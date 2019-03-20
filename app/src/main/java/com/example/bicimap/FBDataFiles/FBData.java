@@ -2,22 +2,30 @@ package com.example.bicimap.FBDataFiles;
 
 import android.view.View;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 public class FBData {
     private double lat;
     private double lon;
-    private int pm;
     private String dh;
+    private  List<Integer> PMlist;
+    private double speed;
+    private double aceleracion;
 
     public FBData(){
 
     }
 
-    public FBData(double lat, double lon, int pm, String dh)
+    public FBData(double lat, double lon, Integer [] pm, String dh, List<Integer> PMlist, double speed )
     {
         this.lat = lat;
         this.lon = lon;
-        this.pm  = pm;
         this.dh = dh;
+        this.PMlist=PMlist;
+        this.speed = speed;
+        this.aceleracion=aceleracion;
     }
 
     public double getLat(){
@@ -34,9 +42,19 @@ public class FBData {
         this.lon = lon;
     }
 
-    public int getPm() { return pm;}
+    public List<Integer> getPMlist(){
+        return PMlist;
+    }
+    public void setPMlist(List<Integer> PMlist) { this.PMlist = PMlist; }
 
-    public void setPm(int pm) { this.pm = pm; }
+    public double getSpeed(){ return speed;}
+    public void setSpeed(double speed){this.speed=speed;}
+
+    public double getAceleracion(){ return aceleracion;}
+    public void setAceleracion( double aceleracion){this.aceleracion=aceleracion;}
+
+
+
 
     public String dataDh() { return dh;}
 

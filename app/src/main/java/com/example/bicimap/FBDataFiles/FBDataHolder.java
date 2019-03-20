@@ -6,8 +6,11 @@ import android.widget.TextView;
 
 import com.example.bicimap.R;
 
+import java.util.List;
+
 public class FBDataHolder extends RecyclerView.ViewHolder {
 
+    private int N_PM=1;
     private View mView;
 
     public FBDataHolder(View itemView) {
@@ -27,13 +30,21 @@ public class FBDataHolder extends RecyclerView.ViewHolder {
         field1.setText(longitud);    }
 
 
-    public void setPM(int pm) {
+    public void setPM(List<Integer> pm) {
         TextView field1 = (TextView) mView.findViewById(R.id.lblPM);
-        String longitud = Integer.toString(pm);
-        field1.setText(longitud);    }
+        String particulas="";
+        if(pm!=null) {
+            for (int i = 0; i < N_PM; i++) {
+                particulas = particulas + Integer.toString(pm.get(i)) + "  ";
+            }
+        }
+            field1.setText(particulas);
 
-    public void setDH(String dh) {
+    }
+
+    public void setDH(double speed) {
         TextView field1 = (TextView) mView.findViewById(R.id.lblFecha);
-        field1.setText(dh);    }
+        String sp=String.valueOf(speed);
+        field1.setText(sp);    }
 
 }

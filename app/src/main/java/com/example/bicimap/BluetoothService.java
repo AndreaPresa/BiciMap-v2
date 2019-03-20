@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,7 +49,8 @@ public class BluetoothService extends Service {
     private boolean stopThread;
     private StringBuilder recDataString = new StringBuilder();
     final int handlerState = 1;//used to identify handler message
-    private int Pm=0;
+    private ArrayList<Integer> PMData;
+    private int N_PM=1;
 
     private char order;
     private boolean stop_fan_Flag=false;
@@ -66,6 +68,10 @@ public class BluetoothService extends Service {
         //Preferencias
         SharedPreferences datosUsuario=getSharedPreferences("Preferencias",MODE_PRIVATE);
         MAC_ADDRESS = datosUsuario.getString("MAC", MAC_ADDRESS);
+        PMData = new ArrayList<Integer>(N_PM);
+        for(int i=0; i<N_PM; i++) {
+            PMData.add(i,0);
+        }
         checkBTState();
 
     }
@@ -96,8 +102,6 @@ public class BluetoothService extends Service {
                 Log.d("DEBUG", "handleMessage" + msg);
                 //Aqui entra igualmente, porque msg.what siempre vale lo que se ponga en handlerState
                 if (msg.what == handlerState) {           //if message is what we want
-                    int decenaPM = 0;
-                    int unidadPM = 0;
                     String readMessage = (String) msg.obj;
                     recDataString.append(readMessage);
                     String recData = recDataString.toString();
@@ -121,16 +125,21 @@ public class BluetoothService extends Service {
                     if (recData.endsWith("\r\n")) {
 
                         if(recData.charAt(0) == 'r') {
-
+                            //Recibimos PM del sensor
                             String num = recData.substring(1, recData.length() - 2);
                             Log.d("RECEIVED_PM", num);
-                            Pm = Integer.parseInt(num);
+                            //Para los nuevos sensores implementar la separación del string en las distintas medidas
+                            // y asignar los valores a PMData
+                            for(int i=0; i<N_PM; i++) {
+                                PMData.set(i,Integer.parseInt(num));
+                            }
+
 
                             Log.d("RECORDED", recDataString.toString());
                             // Do stuff here with your data, like adding it to the database
 
                             Intent intent = new Intent("PM_Data");
-                            intent.putExtra("TestData", Pm);
+                            intent.putIntegerArrayListExtra("TestData", PMData);
                             LocalBroadcastManager.getInstance(mContext).sendBroadcast(intent);
 
                         }

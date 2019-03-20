@@ -3,7 +3,7 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_title">BiciMap</string>
-    <string name="nav_header_subtitle">android.studio@android.com</string>
+    <string name="nav_header_subtitle">user@bicimap.com</string>
     <string name="nav_header_desc">Navigation header</string>
     <string name="action_settings">Settings</string>
     <string name="title_activity_maps">Map</string>
@@ -12,6 +12,8 @@
     <string name="buscar">Buscar</string>
     <string name="conectar">Conectar</string>
     <string name="start">Comenzar recorrido</string>
+    <string name="finish">Finalizar recorrido</string>
+    <string name="finish2">Recorrido finalizado</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="Titulo_BT">Dispositivos encontrados</string>
     <string name="bluetooth">B</string>

@@ -3,6 +3,10 @@ package com.example.bicimap;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -37,16 +41,30 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.IntStream;
 
+import static java.lang.Math.sqrt;
 import static java.lang.System.currentTimeMillis;
 
-public class FirebaseActivity extends AppCompatActivity {
+public class FirebaseActivity extends AppCompatActivity implements  SensorEventListener {
 
 
     private int CONEXION_WIFI=1;
     private int CONEXION_DATOS_MOVILES=2;
     private int SIN_CONEXION=0;
+
+    private int N_PM=1;
+
+    //sensor
+    private SensorManager mSensorManager;
+    private Sensor mSensor;
+    private double aceleracion=0;
+    private int cont_ac=0;
 
     private int contador_locs = 0;
     private RecyclerView recycler;
@@ -71,6 +89,12 @@ public class FirebaseActivity extends AppCompatActivity {
     private String MAC_ADDRESS="";
     private Context mContext;
 
+    //fecha
+    private Calendar myCalendar;
+    private String today;
+    private SimpleDateFormat sdf;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,18 +102,28 @@ public class FirebaseActivity extends AppCompatActivity {
         setContentView(R.layout.activity_firebase);
         mContext= FirebaseActivity.this;
 
+        //Sensor
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+
         //Preferencias, para obtener MAC_ADDRESS
         SharedPreferences datosUsuario=getSharedPreferences("Preferencias",MODE_PRIVATE);
         SharedPreferences.Editor editor = datosUsuario.edit();
         MAC_ADDRESS = datosUsuario.getString("MAC", MAC_ADDRESS);
 
+        //fecha actual
+        myCalendar= Calendar.getInstance();
+        String myFormat = "dd-MM-yyyy";
+        sdf = new SimpleDateFormat(myFormat, Locale.FRANCE);
+        today = sdf.format(myCalendar.getTime());
+
         //Archivo CSV
             //Obtiene ruta de sdcard
             File pathToExternalStorage = Environment.getExternalStorageDirectory();
             //agrega directorio /myFiles
-            File appDirectory = new File(pathToExternalStorage.getAbsolutePath() + "/documents/");
+            File appDirectory = new File(pathToExternalStorage.getAbsolutePath() + "/biciMAP/");
             //Crea archivo
-            File saveFilePath = new File(appDirectory, "DataBase.csv");
+            File saveFilePath = new File(appDirectory, today + ".csv");
 
             if(saveFilePath.exists()) {
                 filePath = datosUsuario.getString("CSV", filePath);
@@ -148,7 +182,9 @@ public class FirebaseActivity extends AppCompatActivity {
                 Bundle bundle = intent.getBundleExtra("bundleFire");
                 double lat = bundle.getDouble("latitud");
                 double lon = bundle.getDouble("longitud");
-                int pm = bundle.getInt("pm");
+                double vel = bundle.getDouble("speed");
+
+                List<Integer> pm =  bundle.getIntegerArrayList("pm");
                 dateMaps = bundle.getString("date");
                 dateTitle.setText(dateMaps);
                 //Para escribir la hora tambien
@@ -160,8 +196,10 @@ public class FirebaseActivity extends AppCompatActivity {
                 FBData newFBData = new FBData();
                 newFBData.setLat(lat);
                 newFBData.setLon(lon);
-                newFBData.setPm(pm);
+                newFBData.setPMlist(pm);
                 newFBData.setDh(formattedDate);
+                newFBData.setSpeed(vel);
+                newFBData.setAceleracion(aceleracion);
 
                 //Identificador de tiempo en milisegundos
                 count = currentTimeMillis();
@@ -184,8 +222,8 @@ public class FirebaseActivity extends AppCompatActivity {
                                                                int position) {
                                     viewHolder.setLatitud(data.getLat());
                                     viewHolder.setLongitud(data.getLon());
-                                    viewHolder.setPM(data.getPm());
-                                    viewHolder.setDH(data.dataDh());
+                                    viewHolder.setPM(data.getPMlist());
+                                    viewHolder.setDH(data.getSpeed());
 
                                 }
                             };
@@ -212,8 +250,8 @@ public class FirebaseActivity extends AppCompatActivity {
                             public void populateViewHolder(FBDataHolder viewHolder, FBData data, int position) {
                                 viewHolder.setLatitud(data.getLat());
                                 viewHolder.setLongitud(data.getLon());
-                                viewHolder.setPM(data.getPm());
-                                viewHolder.setDH(data.dataDh());
+                                viewHolder.setPM(data.getPMlist());
+                                viewHolder.setDH(data.getSpeed());
 
                             }
                         };
@@ -245,7 +283,8 @@ public class FirebaseActivity extends AppCompatActivity {
                 Bundle bundle = intent.getBundleExtra("bundleFire");
                 double lat = bundle.getDouble("latitud");
                 double lon = bundle.getDouble("longitud");
-                int pm = bundle.getInt("pm");
+                List<Integer> pm =  bundle.getIntegerArrayList("pm");
+                double vel = bundle.getDouble("speed");
                 calendar = Calendar.getInstance();
                 if(calendar!=null){
                     formattedDate = df.format(calendar.getTime());}
@@ -257,8 +296,10 @@ public class FirebaseActivity extends AppCompatActivity {
                 FBData newFBData = new FBData();
                 newFBData.setLat(lat);
                 newFBData.setLon(lon);
-                newFBData.setPm(pm);
+                newFBData.setPMlist(pm);
                 newFBData.setDh(formattedDate);
+                newFBData.setSpeed(vel);
+                newFBData.setAceleracion(aceleracion);
 
                 //Identificador de tiempo en milisegundos
                 count = currentTimeMillis();
@@ -290,8 +331,8 @@ public class FirebaseActivity extends AppCompatActivity {
                                 public void populateViewHolder(FBDataHolder viewHolder, FBData loc, int position) {
                                     viewHolder.setLatitud(loc.getLat());
                                     viewHolder.setLongitud(loc.getLon());
-                                    viewHolder.setPM(loc.getPm());
-                                    viewHolder.setDH(loc.dataDh());
+                                    viewHolder.setPM(loc.getPMlist());
+                                    viewHolder.setDH(loc.getSpeed());
 
                                 }
                             };
@@ -301,9 +342,18 @@ public class FirebaseActivity extends AppCompatActivity {
         }
     }
 
+
+
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mSensorManager.unregisterListener(this);
+    }
     @Override
     protected void onResume(){
         super.onResume();
+        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
 
     }
 
@@ -318,8 +368,10 @@ public class FirebaseActivity extends AppCompatActivity {
         int connectionState=isNetworkConnected(mContext);
         if(connectionState==CONEXION_WIFI){
             writeFirebase(locs, loc);
+            writeCSV(loc);
         }else if(connectionState==CONEXION_DATOS_MOVILES){
             writeFirebase(locs, loc);
+            writeCSV(loc);
         }else{
             writeCSV(loc);
         }
@@ -327,6 +379,7 @@ public class FirebaseActivity extends AppCompatActivity {
 
     private void writeCSV(FBData loc) {
         try {
+            List<Integer> pm=loc.getPMlist();
             FileOutputStream fos = new FileOutputStream(filePath, true);
             OutputStreamWriter file = new OutputStreamWriter(fos);
             file.append(String.valueOf(currentTimeMillis()));
@@ -339,7 +392,7 @@ public class FirebaseActivity extends AppCompatActivity {
             file.append(",");
             file.append(String.valueOf(loc.getLon()));
             file.append(",");
-            file.append(String.valueOf(loc.getPm()));
+            file.append(String.valueOf(pm.get(0)));
             file.append("\n");
             file.flush();
             file.close();
@@ -356,6 +409,7 @@ public class FirebaseActivity extends AppCompatActivity {
         dbReference.push().child(MAC_ADDRESS);
         dbReference.child(MAC_ADDRESS).push().child(locs);
         dbReference.child(MAC_ADDRESS).child(locs).setValue(loc);
+        cont_ac=0;
     }
 
     public static int isNetworkConnected(Context context) {
@@ -392,6 +446,10 @@ public class FirebaseActivity extends AppCompatActivity {
         String lat="";
         String lon="";
         String pm="";
+        List<Integer> PMlist =new ArrayList<>();
+        for(int i=0; i<N_PM; i++) {
+            PMlist.add(i,0);
+        }
         String aux="";
         int c;
         int contador=0;
@@ -423,10 +481,13 @@ public class FirebaseActivity extends AppCompatActivity {
                  } else {
                      pm = aux;
                      aux = "";
+                     for(int i=0; i<N_PM; i++) {
+                         PMlist.set(i,Integer.parseInt(pm));
+                     }
                      FBData newFBData = new FBData();
                      newFBData.setLat(Double.parseDouble(lat));
                      newFBData.setLon(Double.parseDouble(lon));
-                     newFBData.setPm(Integer.parseInt(pm));
+                     newFBData.setPMlist(PMlist);
 
                      writeFirebase(time, newFBData);
 
@@ -434,18 +495,40 @@ public class FirebaseActivity extends AppCompatActivity {
                  }
              }
 
-            File file = new File(filePath);
-            file.delete();
+            //File file = new File(filePath);
+            //file.delete();
+
+            Toast.makeText(getApplicationContext(), "Tu información ha sido añadida a la base de datos",
+                    Toast.LENGTH_SHORT).show();
 
         } catch (FileNotFoundException e) {
             Log.i("File not found",e.toString());
+            Toast.makeText(getApplicationContext(), "No hay información nueva para añadir a la base de datos",
+                    Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             Log.i("Error",e.toString());
         }
 
-        Toast.makeText(getApplicationContext(), "Tu información ha sido añadida a la base de datos",
-                Toast.LENGTH_SHORT).show();
 
+
+    }
+
+    //SENSORES
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (cont_ac == 0) {
+            aceleracion = sqrt(event.values[0]*event.values[0]+event.values[1]*event.values[1]+event.values[2]*event.values[2]);
+            cont_ac++;
+        }else{
+            aceleracion = (aceleracion + sqrt(event.values[0]*event.values[0]+event.values[1]*event.values[1]+event.values[2]*event.values[2]))/(cont_ac+1);
+            cont_ac++;
+
+        }
+
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
     }
 
 }

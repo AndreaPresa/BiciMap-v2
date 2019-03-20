@@ -1,6 +1,7 @@
 package com.example.bicimap;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.DatePickerDialog;
 import android.content.BroadcastReceiver;
@@ -10,6 +11,10 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -61,23 +66,33 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback {
+import static java.lang.Math.cos;
+import static java.lang.Math.sin;
+import static java.lang.Math.sqrt;
+import static java.lang.Math.toRadians;
+import static java.lang.System.currentTimeMillis;
+
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback{
 
     //mapa
     private GoogleMap mMap;
     private Context mContext;
     private GoogleApiClient client;
 
+
+
     //localizacion
     private FusedLocationProviderClient mFusedLocationClient;
-    private static final int PETICION_PERMISO_LOCALIZACION = 101;
 
     private LocationManager locationManager;
     private boolean gps_enabled=false;
     private boolean network_enabled=false;
 
     private Location lastlocation;
+    private Location lastlocation2;
+    private Location getLastlocation3=null;
+    private long time1;
+    private long time2;
     double latitud, longitud;
 
     //botones
@@ -95,13 +110,14 @@ public class MainActivity extends AppCompatActivity
     private char finish_PM='s';
     private boolean PM_flag=false;
 
+    private int N_PM=1;
     private int PM_FB_counter;
-    private static final int PMDefault = 0;
-    private int PMData;
-    private int [] PMData_array;
+    private ArrayList<Integer> PMData;
+    private List<ArrayList<Integer>> PMData_array;
     private int PMData_counter;
     private final int PMData_max = 10;
     private boolean save_loc_PM_flag=false;
+
 
     //fecha
     private Calendar myCalendar;
@@ -117,8 +133,17 @@ public class MainActivity extends AppCompatActivity
     private DatabaseReference dbLocations=null;
     private DatabaseReference dbLocations1=null;
 
+    //permisos
+     private String[] PERMISSIONS = {
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+
+    };
 
 
+
+    @SuppressLint("MissingPermission")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -131,27 +156,32 @@ public class MainActivity extends AppCompatActivity
 
         //PERMISOS
 
-        //Permiso de escritura
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE )!= PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},1024);
+        if(!hasPermissions(this, PERMISSIONS)){
+            ActivityCompat.requestPermissions(this, PERMISSIONS, 1);
         }
 
-        //permiso de localizacion
-        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PETICION_PERMISO_LOCALIZACION);
-        }
 
         //Preferencias
         SharedPreferences datosUsuario=getSharedPreferences("Preferencias",MODE_PRIVATE);
         SharedPreferences.Editor editor = datosUsuario.edit();
 
+
         FB_flag = false;
         //Inicializo PMDataCounter
         PMData_counter=0;
         //Declaro el vector de enteros y lo inicializo
-        PMData_array = new int[PMData_max];
-        Arrays.fill(PMData_array, -1);
+        PMData = new ArrayList<Integer>();
+        for(int i=0; i<N_PM; i++) {
+            PMData.add(i,0);
+        }
+
+        PMData_array = new ArrayList<ArrayList<Integer>>(PMData_max);
+        for(int i=0; i<PMData_max; i++) {
+            PMData_array.add(i,PMData);
+        }
+
+
+
         //Inicializo PM_FB_Counter
         PM_FB_counter=0;
 
@@ -174,6 +204,7 @@ public class MainActivity extends AppCompatActivity
                     public void onSuccess(Location location) {
 
                         if (location != null) {
+                            time1=currentTimeMillis();
                             lastlocation=location;
                             LatLng primeraLoc =new LatLng (location.getLatitude(), location.getLongitude());
                             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(primeraLoc, 12));
@@ -295,6 +326,7 @@ public class MainActivity extends AppCompatActivity
                     if(!PM_flag) {
                         start_onButton.setBackgroundTintList(ColorStateList.
                                 valueOf(getResources().getColor(R.color.colorPrimary)));
+                        //start_onButton.setText(R.string.finish);
                         intent.putExtra("PM", start_PM);
                         PM_flag=true;
                         startService(intent);
@@ -303,8 +335,7 @@ public class MainActivity extends AppCompatActivity
                     }
 
                     else {
-                        start_onButton.setBackgroundTintList(ColorStateList.
-                                valueOf(getResources().getColor(R.color.colorWhite)));
+                        //start_onButton.setText(R.string.finish2);
                         intent.putExtra("PM", finish_PM);
                         PM_flag=false;
                         startService(intent);
@@ -337,6 +368,13 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+
+    }
+
+
+    @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -352,7 +390,10 @@ public class MainActivity extends AppCompatActivity
     LocationListener locationListenerNetwork = new LocationListener() {
         @Override
         public void onLocationChanged(Location location) {
-            lastlocation = location;
+            time2=time1;
+            lastlocation2=lastlocation;
+            time1=currentTimeMillis();
+            lastlocation=location;
             latitud = location.getLatitude();
             longitud = location.getLongitude();
             Log.d("lat = ",""+latitud);
@@ -379,6 +420,9 @@ public class MainActivity extends AppCompatActivity
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(Location location) {
+            time2=time1;
+            lastlocation2=lastlocation;
+            time1=currentTimeMillis();
             lastlocation=location;
             latitud = location.getLatitude();
             longitud = location.getLongitude();
@@ -455,27 +499,33 @@ public class MainActivity extends AppCompatActivity
                 Toast.makeText(getApplicationContext(), "Localización nula",
                         Toast.LENGTH_SHORT).show();
             }
-            else { Intent bindIntent = new Intent(mContext, BluetoothService.class);
+            else {
+                Intent bindIntent = new Intent(mContext, BluetoothService.class);
                 bindIntent.putExtra("PM", read_PM);
                 startService(bindIntent);
-                if(PMData!=0 && save_loc_PM_flag) {
+                if(PMData.size()!=0){
+                if (PMData.get(0)!= 0 && save_loc_PM_flag) {
                     latitud = location.getLatitude();
                     longitud = location.getLongitude();
                     Bundle b = new Bundle();
                     b.putDouble("latitud", latitud);
                     b.putDouble("longitud", longitud);
-                    b.putInt("pm", PMData_array[PM_FB_counter]); //Si estoy en modo Firebase o Re
+                    b.putIntegerArrayList("pm", PMData_array.get(PM_FB_counter)); //Si estoy en modo Firebase o Re
                     b.putString("date", today);
-                    if (PM_FB_counter == PMData_max-1) {
+                    b.putDouble("speed", getVelocidad());
+
+
+                    if (PM_FB_counter == PMData_max - 1) {
                         PM_FB_counter = 0;
                     } else {
                         PM_FB_counter++;
                     }
-                    save_loc_PM_flag=false; //Espero hasta la siguiente medida correcta
+                    save_loc_PM_flag = false; //Espero hasta la siguiente medida correcta
                     Intent i = new Intent(MainActivity.this, FirebaseActivity.class);
                     i.putExtra("bundleFire", b);
                     startActivity(i);
                 }
+            }
             }
 
         }
@@ -486,16 +536,17 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onReceive(Context context, Intent intent) {
             // Get extra data included in the Intent
-            PMData = intent.getIntExtra("TestData", PMDefault);
-            if(PMData!=0) {
-                save_loc_PM_flag=true; //He recibido una medida correcta!
-                PMData_array[PMData_counter] = PMData;
-                //Cuando llega a 10 elementos, sobreeescribo el vector
-                if (PMData_counter == PMData_max-1) {
-                    PMData_counter = 0;
-                } else {
-                    PMData_counter++;
-                }
+            PMData = intent.getIntegerArrayListExtra("TestData");
+                if (PMData.get(0) != 0) {
+                    save_loc_PM_flag = true; //He recibido una medida correcta!
+                    PMData_array.set(PMData_counter,PMData);
+                    //Cuando llega a 10 elementos, sobreeescribo el vector
+                    if (PMData_counter == PMData_max - 1) {
+                        PMData_counter = 0;
+                    } else {
+                        PMData_counter++;
+                    }
+
             }
 
         }
@@ -636,9 +687,12 @@ public class MainActivity extends AppCompatActivity
 
                                 Long name = Long.parseLong(postSnapshot.getKey());
 
-                                if(name<(dateMillis+DIA_MILLIS)&&(name>(dateMillis-DIA_MILLIS))) {
+                                if(name<(dateMillis+DIA_MILLIS)&&(name>dateMillis)) {
                                     LatLng latLng = new LatLng(loc.getLat(), loc.getLon());
-                                    WeightedLatLng data = new WeightedLatLng(latLng, loc.getPm());
+                                    List<Integer> PMlist = new ArrayList<>();
+                                    PMlist = loc.getPMlist();
+                                    int pm = PMlist.get(0);
+                                    WeightedLatLng data = new WeightedLatLng(latLng, pm);
                                     latLngList.add(data);
                                 }
                             }
@@ -667,11 +721,56 @@ public class MainActivity extends AppCompatActivity
 
     private long DatetoMillis(String date){
         long Millis;
+        long mes1=0;
         int año=Integer.parseInt(date.substring(6,10));
         int mes=Integer.parseInt(date.substring(3,5));
         int dia=Integer.parseInt(date.substring(0,2));
         int diasbisiestos= (año-1970)/4;
-        Millis=((año-1970)*365+(mes-1)*365/12+dia+diasbisiestos-1)*DIA_MILLIS;
+        switch (mes) {
+            case 1: mes1=0; break;
+            case 2: mes1=31; break;
+            case 3: mes1=59; break;
+            case 4: mes1= 90; break;
+            case 5: mes1=120; break;
+            case 6: mes1=151; break;
+            case 7: mes1=181; break;
+            case 8: mes1=212; break;
+            case 9: mes1= 243; break;
+            case 10: mes1=273; break;
+            case 11: mes1=304; break;
+            case 12: mes1=334; break;
+        }
+
+        Millis=((año-1970)*365+mes1+dia+diasbisiestos-1)*DIA_MILLIS;
     return Millis;}
+
+    private double getVelocidad(){
+        if((lastlocation2!=null) && (lastlocation2!=getLastlocation3)) {
+            getLastlocation3=lastlocation2;
+            double r = 6378100;
+            double v_lat = toRadians(lastlocation.getLatitude()-lastlocation2.getLatitude());
+            double v_lon = toRadians( lastlocation.getLongitude()- lastlocation2.getLongitude());
+            double a  = sin(v_lat/2)*sin(v_lat/2) + cos(toRadians(lastlocation.getLatitude())) * cos(toRadians(lastlocation2.getLatitude())) *sin(v_lon/2)*sin(v_lon/2);
+            double c= 2 * Math.atan2(sqrt(a), sqrt(1-a));
+            double distancia = r * c;
+            double velocidad = distancia / ((time1 - time2) * 0.001);
+
+            return velocidad ;
+        }else{
+            return 0;}
+
+    }
+
+    public static boolean hasPermissions(Context context, String... permissions) {
+        if (context != null && permissions != null) {
+            for (String permission : permissions) {
+                if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
 
 }
