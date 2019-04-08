@@ -20,10 +20,14 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.bicimap.Bluetooth.BluetoothActivity;
 import com.example.bicimap.FBDataFiles.FBData;
 import com.example.bicimap.FBDataFiles.FBDataHolder;
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
@@ -40,6 +44,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,13 +77,14 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
 
     private boolean adapter_Flag=false;
 
-    private FloatingActionButton clear_button;
+
     private Calendar calendar; //Para recoger fecha y hora
     private SimpleDateFormat df;
     private String formattedDate;
 
     private String dateMaps="Sin datos al escribir";
-    private TextView dateTitle;
+    private TextView numberPM;
+    private TextView numberSpeed;
 
     private FirebaseRecyclerAdapter mAdapter;
 
@@ -94,15 +100,66 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
     private String today;
     private SimpleDateFormat sdf;
 
+    //progress bar
+    ProgressBar myProgressBar;
+
+    //observaciones
+    private CheckBox humos, olores, trafico, semaforos, viento, lluvia, vegetacion, cruce, obras;
+    private EditText otros;
+    private String observaciones = "";
+    private Button btn_otros;
+    private Button btn_end;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_firebase);
+        setContentView(R.layout.activity_progressbar);
+
         mContext= FirebaseActivity.this;
 
-        //Sensor
+        //Progress bar
+        myProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
+
+        //formato velocidad
+        DecimalFormat precision = new DecimalFormat("0.00");
+
+        //declacion de checkbox
+        humos=(CheckBox)findViewById(R.id.humos);
+        olores=(CheckBox)findViewById(R.id.olor);
+        trafico=(CheckBox)findViewById(R.id.trafico);
+        semaforos=(CheckBox)findViewById(R.id.semaforo);
+        viento=(CheckBox)findViewById(R.id.viento);
+        lluvia=(CheckBox)findViewById(R.id.lluvia);
+        vegetacion=(CheckBox)findViewById(R.id.vegetacion);
+        cruce=(CheckBox)findViewById(R.id.cruce);
+        obras=(CheckBox)findViewById(R.id.obras);
+        otros=(EditText)findViewById(R.id.otros);
+
+        btn_otros=(Button)findViewById(R.id.btn_otros);
+        btn_end=(Button)findViewById(R.id.btn_end);
+
+
+        //Listeners
+        btn_otros.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                observaciones = observaciones + otros.getText();
+                otros.setText("");
+            }
+        });
+        btn_end.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                startActivity(new Intent(getBaseContext(), MainActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                finish();
+
+            }
+        });
+
+                //Sensor
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 
@@ -135,6 +192,9 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
                 editor.commit();
             }
 
+            //Doy valor a los textview
+        numberPM=(TextView)findViewById(R.id.number_pm);
+        numberSpeed=(TextView)findViewById(R.id.speed);
 
         //Creo el formato para apuntar la fecha y la hora del experimento en FB
         df = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -143,37 +203,11 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
         Intent intent = getIntent();
         intent.getExtras();
 
-        dateTitle = (TextView) findViewById(R.id.dateTitle);
-
         //Referencia Firebase
         dbReference =
                 FirebaseDatabase.getInstance().getReference()
                         .child("locations");
 
-        //BOTONES
-        clear_button = (FloatingActionButton) findViewById(R.id.btn_backToMap);
-        clear_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                dbReference =
-                        FirebaseDatabase.getInstance().getReference()
-                                .child("locations").child(MAC_ADDRESS);
-                //dbLocations.removeValue();
-                Intent i = new Intent(FirebaseActivity.this, MainActivity.class);
-/*
-                          //Los modos de Flag son necesarios para que FB_flag no cambie de valor solo...
-                          //Lo que se hace es que se crea una nueva task y se eliminan las demás actividades
-*/
-                i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(i);
-                onPause();
-            }
-        });
-
-
-        RecyclerView recycler = findViewById(R.id.lstLocations);
-        recycler.setLayoutManager(new LinearLayoutManager(this));
-        recycler.setHasFixedSize(true);
 
 
         //Creo el bundle que recibira la nueva localizacion para apuntarla
@@ -186,12 +220,14 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
 
                 List<Integer> pm =  bundle.getIntegerArrayList("pm");
                 dateMaps = bundle.getString("date");
-                dateTitle.setText(dateMaps);
                 //Para escribir la hora tambien
                 calendar = Calendar.getInstance();
                 if(calendar!=null){
                     formattedDate = df.format(calendar.getTime());}
                 else {formattedDate = " ";}
+
+                //Actualizo Observaciones
+                checkObservaciones();
 
                 FBData newFBData = new FBData();
                 newFBData.setLat(lat);
@@ -200,67 +236,17 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
                 newFBData.setDh(formattedDate);
                 newFBData.setSpeed(vel);
                 newFBData.setAceleracion(aceleracion);
+                newFBData.setObservaciones(observaciones);
+                observaciones = "";
 
                 //Identificador de tiempo en milisegundos
                 count = currentTimeMillis();
                 String contador = String.valueOf(count);
                 writeNewLocation(contador, newFBData);
 
-
-                //VISUALIZACION
-                if (MAC_ADDRESS != null) {
-
-                    mAdapter =
-                            new FirebaseRecyclerAdapter<FBData, FBDataHolder>(
-                                    FBData.class, R.layout.layout_fb_adapter,
-                                    FBDataHolder.class,
-                                    dbReference.child(MAC_ADDRESS)) {
-
-                                @Override
-                                public void populateViewHolder(FBDataHolder viewHolder,
-                                                               FBData data,
-                                                               int position) {
-                                    viewHolder.setLatitud(data.getLat());
-                                    viewHolder.setLongitud(data.getLon());
-                                    viewHolder.setPM(data.getPMlist());
-                                    viewHolder.setDH(data.getSpeed());
-
-                                }
-                            };
-                    recycler.setAdapter(mAdapter);
-                }
-
-            }
-            else if (intent.getBundleExtra("onlyRead") != null) {
-
-                int connectionState=isNetworkConnected(mContext);
-                if(connectionState==CONEXION_WIFI||connectionState==CONEXION_DATOS_MOVILES) {
-                    CSVtoFB();
-                }
-
-                Bundle b = intent.getBundleExtra("onlyRead");
-                dateMaps = b.getString("date");
-                dateTitle.setText(dateMaps);
-                mAdapter =
-                        new FirebaseRecyclerAdapter<FBData, FBDataHolder>(
-                                FBData.class, R.layout.layout_fb_adapter, FBDataHolder.class, dbReference.child(MAC_ADDRESS)) {
-
-
-                            @Override
-                            public void populateViewHolder(FBDataHolder viewHolder, FBData data, int position) {
-                                viewHolder.setLatitud(data.getLat());
-                                viewHolder.setLongitud(data.getLon());
-                                viewHolder.setPM(data.getPMlist());
-                                viewHolder.setDH(data.getSpeed());
-
-                            }
-                        };
-
-                recycler.setAdapter(mAdapter);
-                adapter_Flag=true;
-
-
-
+                myProgressBar.setProgress(pm.get(0));
+                numberPM.setText(String.valueOf(pm.get(0)));
+                numberSpeed.setText(precision.format(vel));
             }
 
         }
@@ -273,13 +259,13 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
 
     protected void onNewIntent(Intent intent){
 
-
+        DecimalFormat precision = new DecimalFormat("0.00");
         intent.getExtras();
 
         if (intent.getExtras()!=null) {
             if (intent.getBundleExtra("bundleFire") != null) {
 
-
+                //Recibimos datos de MainActivity
                 Bundle bundle = intent.getBundleExtra("bundleFire");
                 double lat = bundle.getDouble("latitud");
                 double lon = bundle.getDouble("longitud");
@@ -291,7 +277,9 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
                 else {formattedDate = " ";}
 
                 dateMaps = bundle.getString("date");
-                dateTitle.setText(dateMaps);
+
+                //Actualizamos observaciones
+                checkObservaciones();
 
                 FBData newFBData = new FBData();
                 newFBData.setLat(lat);
@@ -300,47 +288,24 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
                 newFBData.setDh(formattedDate);
                 newFBData.setSpeed(vel);
                 newFBData.setAceleracion(aceleracion);
+                newFBData.setObservaciones(observaciones);
+                observaciones = "";
 
                 //Identificador de tiempo en milisegundos
                 count = currentTimeMillis();
                 String contador = String.valueOf(count);
                 writeNewLocation(contador, newFBData);
-
+                myProgressBar.setProgress(pm.get(0));
+                numberPM.setText(String.valueOf(pm.get(0)));
+                numberSpeed.setText(precision.format(vel));
 
             }
 
-            else if (intent.getBundleExtra("onlyRead") != null) {
-
-                int connectionState=isNetworkConnected(mContext);
-                if(connectionState==CONEXION_WIFI||connectionState==CONEXION_DATOS_MOVILES) {
-                    CSVtoFB();
-                }
-
-                Bundle b =
-                        intent.getBundleExtra("onlyRead");
-                dateMaps = b.getString("date");
-
-                //Si no se ha instanciado el adapter antes
-                if (!adapter_Flag) {
-                    mAdapter =
-                            new FirebaseRecyclerAdapter<FBData, FBDataHolder>(
-                                    FBData.class, R.layout.layout_fb_adapter, FBDataHolder.class, dbReference.child(MAC_ADDRESS)) {
 
 
-                                @Override
-                                public void populateViewHolder(FBDataHolder viewHolder, FBData loc, int position) {
-                                    viewHolder.setLatitud(loc.getLat());
-                                    viewHolder.setLongitud(loc.getLon());
-                                    viewHolder.setPM(loc.getPMlist());
-                                    viewHolder.setDH(loc.getSpeed());
-
-                                }
-                            };
-                    recycler.setAdapter(mAdapter);
-                }
             }
         }
-    }
+
 
 
 
@@ -391,6 +356,10 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
             file.append(String.valueOf(loc.getLat()));
             file.append(",");
             file.append(String.valueOf(loc.getLon()));
+            file.append(",");
+            file.append(String.valueOf(loc.getSpeed()));
+            file.append(",");
+            file.append(String.valueOf(loc.getAceleracion()));
             file.append(",");
             file.append(String.valueOf(pm.get(0)));
             file.append("\n");
@@ -445,6 +414,8 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
         String time="";
         String lat="";
         String lon="";
+        String vel="";
+        String acel="";
         String pm="";
         List<Integer> PMlist =new ArrayList<>();
         for(int i=0; i<N_PM; i++) {
@@ -473,6 +444,12 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
                          } else if (contador == 4) {
                              lon = aux;
                              aux = "";
+                         }else if (contador == 5) {
+                             vel= aux;
+                             aux = "";
+                         }else if (contador == 6) {
+                             acel = aux;
+                             aux = "";
                          }
                          contador++;
                      } else {
@@ -487,6 +464,8 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
                      FBData newFBData = new FBData();
                      newFBData.setLat(Double.parseDouble(lat));
                      newFBData.setLon(Double.parseDouble(lon));
+                     newFBData.setSpeed(Double.parseDouble(vel));
+                     newFBData.setAceleracion(Double.parseDouble(acel));
                      newFBData.setPMlist(PMlist);
 
                      writeFirebase(time, newFBData);
@@ -512,6 +491,55 @@ public class FirebaseActivity extends AppCompatActivity implements  SensorEventL
 
 
     }
+
+    private void checkObservaciones(){
+
+            if (trafico.isChecked()) {
+                observaciones = observaciones + "trafico ";
+            }
+            if (semaforos.isChecked()) {
+                observaciones = observaciones + "semaforos ";
+            }
+            if (obras.isChecked()) {
+                observaciones = observaciones + "obras ";
+            }
+            if (humos.isChecked()) {
+                observaciones = observaciones + "humos ";
+            }
+            if (olores.isChecked()) {
+                observaciones = observaciones + "olores ";
+            }
+            if (cruce.isChecked()) {
+                observaciones = observaciones + "cruce ";
+            }
+            if (vegetacion.isChecked()) {
+                observaciones = observaciones + "vegetacion ";
+            }
+            if (lluvia.isChecked()) {
+                observaciones = observaciones + "lluvia ";
+            }
+            if (viento.isChecked()) {
+                observaciones = observaciones + "viento ";
+            }
+
+                trafico.setChecked(false);
+                semaforos.setChecked(false);
+                obras.setChecked(false);
+                humos.setChecked(false);
+                olores.setChecked(false);
+                cruce.setChecked(false);
+                vegetacion.setChecked(false);
+                lluvia.setChecked(false);
+                viento.setChecked(false);
+
+            /*    String otras_obs = otros.getText().toString();
+                if(otras_obs!="Otros"){
+                    observaciones = observaciones + otras_obs;
+                    otros.setText("Otros");
+                }
+                */
+    }
+
 
     //SENSORES
     @Override

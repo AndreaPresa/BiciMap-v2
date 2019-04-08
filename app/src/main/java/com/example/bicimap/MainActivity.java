@@ -137,6 +137,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
      private String[] PERMISSIONS = {
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.BLUETOOTH_ADMIN,
             android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
 
     };
@@ -293,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     Intent intent = new Intent(MainActivity.this,
                         BluetoothActivity.class);
                     startActivity(intent);
+                    finish();
             }
         });
 
@@ -397,8 +400,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             latitud = location.getLatitude();
             longitud = location.getLongitude();
             Log.d("lat = ",""+latitud);
-            LatLng latLng = new LatLng(latitud , longitud);
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
+            // LatLng latLng = new LatLng(latitud , longitud);
+            //mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
 
         }
 
@@ -427,8 +430,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             latitud = location.getLatitude();
             longitud = location.getLongitude();
             Log.d("lat = ",""+latitud);
-            LatLng latLng = new LatLng(latitud , longitud);
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
+           // LatLng latLng = new LatLng(latitud , longitud);
+            //mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
 
         }
 

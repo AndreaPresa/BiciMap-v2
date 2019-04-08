@@ -45,5 +45,26 @@
     <string name="titulo">BiciMap</string>
     <string name="password2">Confirma la contraseña</string>
 
+    <!-- ProgressBar & Checkbox-->
+    <string name="obras">Obras</string>
+    <string name="trafico">Tráfico</string>
+    <string name="humos">Humos</string>
+    <string name="viento">Viento</string>
+    <string name="lluvia">Lluvia</string>
+    <string name="otros">Otros</string>
+    <string name="pm_inicial">0</string>
+    <string name="cruce">Cruce</string>
+    <string name="semaforo">Semáforo</string>
+    <string name="vegetacion">Vegetación</string>
+
+    <string name="pregunta">¿Qué ves por el camino?</string>
+    <string name="ambiente">Ambiente</string>
+    <string name="via">Vía pública</string>
+    <string name="clima">Clima</string>
+    <string name="olor">Olores</string>
+    <string name="speed">Velocidad:</string>
+    <string name="speed1">0</string>
+    <string name="speed2">m/s</string>
+
 
 </resources>

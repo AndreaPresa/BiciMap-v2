@@ -127,6 +127,7 @@ public class BluetoothActivity extends AppCompatActivity {
                         b.putString("mac", MAC_ADDRESS);
                         intent.putExtra("BTdevice",b);
                         startActivity(intent);
+                        finish();
                     }
                 });
 

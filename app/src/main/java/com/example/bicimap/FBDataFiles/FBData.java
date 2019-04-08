@@ -13,12 +13,13 @@ public class FBData {
     private  List<Integer> PMlist;
     private double speed;
     private double aceleracion;
+    private String observaciones;
 
     public FBData(){
 
     }
 
-    public FBData(double lat, double lon, Integer [] pm, String dh, List<Integer> PMlist, double speed )
+    public FBData(double lat, double lon, Integer [] pm, String dh, List<Integer> PMlist, double speed, String observaciones )
     {
         this.lat = lat;
         this.lon = lon;
@@ -26,6 +27,7 @@ public class FBData {
         this.PMlist=PMlist;
         this.speed = speed;
         this.aceleracion=aceleracion;
+        this.observaciones=observaciones;
     }
 
     public double getLat(){
@@ -53,6 +55,8 @@ public class FBData {
     public double getAceleracion(){ return aceleracion;}
     public void setAceleracion( double aceleracion){this.aceleracion=aceleracion;}
 
+    public String getObservaciones(){ return observaciones;}
+    public void setObservaciones( String observaciones ){this.observaciones=observaciones;}
 
 
 
