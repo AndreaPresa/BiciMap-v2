@@ -66,5 +66,10 @@
     <string name="speed1">0</string>
     <string name="speed2">m/s</string>
 
+    <!-- MapBox-->
+    <string name="mapbox_access_token">pk.eyJ1IjoiYW5kcmVhcG05NiIsImEiOiJjanU4MnY4a3kweHN1NDRtc2JzZmp0N3lkIn0.JZOC52Q_ZO2g5phVTMkpvg</string>
+    <string name="user_location_permission_explanation">Para el correcto funcionamiento de BiciMAP es necesario el permiso de Localización.</string>
+    <string name="user_location_permission_not_granted">Permiso denegado.</string>
+
 
 </resources>

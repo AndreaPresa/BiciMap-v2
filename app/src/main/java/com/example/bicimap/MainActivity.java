@@ -43,11 +43,23 @@ import com.example.bicimap.Bluetooth.BluetoothActivity;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdateFactory;
+
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.OnMapReadyCallback;
+import com.mapbox.android.core.permissions.PermissionsListener;
+import com.mapbox.android.core.permissions.PermissionsManager;
+import com.mapbox.mapboxsdk.camera.CameraPosition;
+import com.mapbox.mapboxsdk.camera.CameraUpdate;
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
+import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
+import com.mapbox.mapboxsdk.location.LocationComponent;
+import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions;
+import com.mapbox.mapboxsdk.location.LocationComponentOptions;
+import com.mapbox.mapboxsdk.location.modes.CameraMode;
+import com.mapbox.mapboxsdk.location.modes.RenderMode;
+import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.LatLng;
+
 import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -58,6 +70,10 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.maps.android.heatmaps.HeatmapTileProvider;
 import com.google.maps.android.heatmaps.WeightedLatLng;
+import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.maps.MapView;
+import com.mapbox.mapboxsdk.maps.MapboxMap;
+import com.mapbox.mapboxsdk.maps.Style;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -66,18 +82,25 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import static com.mapbox.mapboxsdk.camera.CameraUpdateFactory.newCameraPosition;
+import static com.mapbox.mapboxsdk.camera.CameraUpdateFactory.zoomBy;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static java.lang.Math.sqrt;
 import static java.lang.Math.toRadians;
 import static java.lang.System.currentTimeMillis;
 
-public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback{
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback, PermissionsListener {
+
+
 
     //mapa
-    private GoogleMap mMap;
     private Context mContext;
-    private GoogleApiClient client;
+    private MapView mapView;
+    private PermissionsManager permissionsManager;
+    private NavigationView navigationView;
+    private MapboxMap mMapboxMap;
+    private Style myStyle;
 
 
 
@@ -149,12 +172,41 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Mapbox.getInstance(getApplicationContext(), "pk.eyJ1IjoiYW5kcmVhcG05NiIsImEiOiJjanU4MnY4a3kweHN1NDRtc2JzZmp0N3lkIn0.JZOC52Q_ZO2g5phVTMkpvg");
+
         setContentView(R.layout.activity_main);
-        SupportMapFragment supportMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
-        supportMapFragment.getMapAsync(this);
+
         mContext= MainActivity.this;
 
-        latLngList = new ArrayList<>();
+        setContentView(R.layout.activity_main);
+
+        mapView = (MapView) findViewById(R.id.mapView);
+        mapView.onCreate(savedInstanceState);
+        mapView.getMapAsync(new OnMapReadyCallback() {
+            @Override
+            public void onMapReady(@NonNull final MapboxMap mapboxMap) {
+                mMapboxMap=mapboxMap;
+                mapboxMap.setStyle(Style.MAPBOX_STREETS, new Style.OnStyleLoaded() {
+
+                    @Override
+                    public void onStyleLoaded(@NonNull Style style) {
+
+                        myStyle=style;
+                        // Map is set up and the style has loaded. Now you can add data or make other map adjustments
+
+                        CameraPosition initialPosition = new CameraPosition.Builder()
+                                .target(new LatLng(40.4167,-3.7037))
+                                .zoom(10)
+                                .build();
+                        mapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(initialPosition), 1000);
+
+                        enableLocationComponent(style);
+
+                    }
+                });
+            }
+        });
+
 
         //PERMISOS
 
@@ -204,12 +256,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 .addOnSuccessListener(this, new OnSuccessListener<Location>() {
                     @Override
                     public void onSuccess(Location location) {
-
                         if (location != null) {
                             time1=currentTimeMillis();
                             lastlocation=location;
-                            LatLng primeraLoc =new LatLng (location.getLatitude(), location.getLongitude());
-                            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(primeraLoc, 12));
+                            if(mMapboxMap!=null) {
+                                CameraPosition initialPosition = new CameraPosition.Builder()
+                                        .target(new LatLng(lastlocation.getLatitude(), lastlocation.getLongitude()))
+                                        .zoom(10)
+                                        .build();
+                                mMapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(initialPosition), 1000);
+                            }
                         }
                     }
                 });
@@ -253,19 +309,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
                     if (mMap_locationFlag) {
                         mMap_locationFlag = !mMap_locationFlag;
-                        int id = getResources().getIdentifier("ic_location_on",
+                        int id = getResources().getIdentifier("ic_location_off",
                                 "drawable", "com.example.bicimap");
                         location_onButton.setImageResource(id);
-                        mMap.setMyLocationEnabled(false);
+                        //mMap.setMyLocationEnabled(false);
+                        enableLocationComponent(myStyle);
 
 
                     } else if (!mMap_locationFlag) {
                         mMap_locationFlag = !mMap_locationFlag;
-                        int id = getResources().getIdentifier("ic_location_off",
+                        int id = getResources().getIdentifier("ic_location_on",
                                 "drawable", "com.example.bicimap");
                         location_onButton.setImageResource(id);
-                        mMap.setMyLocationEnabled(true);
-
+                        //mMap.setMyLocationEnabled(true);
+                        disableLocationComponent(myStyle);
                     }
 
                 }
@@ -362,10 +419,43 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     }
 
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        mapView.onStart();
+    }
+
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        mapView.onStop();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        mapView.onLowMemory();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mapView.onDestroy();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        mapView.onSaveInstanceState(outState);
+    }
+
     @Override
     protected void onResume(){
 
         super.onResume();
+        mapView.onResume();
         FB_flag=false;
 
     }
@@ -373,22 +463,104 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onPause() {
         super.onPause();
+        mapView.onPause();
 
     }
 
 
     @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
-        }
-        LatLng madrid = new LatLng(40.4167754, -3.7037901999999576);
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(madrid, 12));
-
+    public void onMapReady(@NonNull final MapboxMap mapboxMap) {
+        mMapboxMap = mapboxMap;
 
     }
+
+    @SuppressWarnings( {"MissingPermission"})
+    private void enableLocationComponent(@NonNull Style loadedMapStyle) {
+// Check if permissions are enabled and if not request
+        if (PermissionsManager.areLocationPermissionsGranted(this)) {
+
+            LocationComponentOptions locationComponentOptions = LocationComponentOptions.builder(this)
+                    .elevation(1)
+                    .accuracyAlpha(.4f)
+                    .foregroundDrawable(R.drawable.ic_bike)
+                    .maxZoomIconScale(.07f)
+                    .minZoomIconScale(.04f)
+                    .bearingTintColor(R.color.colorAccent).build();
+
+            // Get an instance of the component
+            LocationComponent locationComponent =mMapboxMap.getLocationComponent();
+
+            LocationComponentActivationOptions locationComponentActivationOptions = LocationComponentActivationOptions
+                    .builder(this, myStyle)
+                    .locationComponentOptions(locationComponentOptions)
+                    .build();
+
+
+
+// Activate with options
+            locationComponent.activateLocationComponent(locationComponentActivationOptions);
+
+// Enable to make component visible
+            locationComponent.setLocationComponentEnabled(true);
+
+// Set the component's camera mode
+            locationComponent.setCameraMode(CameraMode.TRACKING);
+
+// Set the component's render mode
+            locationComponent.setRenderMode(RenderMode.COMPASS);
+        } else {
+            permissionsManager = new PermissionsManager(this);
+            permissionsManager.requestLocationPermissions(this);
+        }
+    }
+
+    @SuppressWarnings( {"MissingPermission"})
+    private void disableLocationComponent(@NonNull Style loadedMapStyle) {
+// Check if permissions are enabled and if not request
+        if (PermissionsManager.areLocationPermissionsGranted(this)) {
+
+// Get an instance of the component
+            LocationComponent locationComponent =mMapboxMap.getLocationComponent();
+
+// Activate with options
+            locationComponent.activateLocationComponent(this, loadedMapStyle);
+
+// Enable to make component visible
+            locationComponent.setLocationComponentEnabled(false);
+
+// Set the component's camera mode
+            locationComponent.setCameraMode(CameraMode.TRACKING);
+
+// Set the component's render mode
+            locationComponent.setRenderMode(RenderMode.COMPASS);
+        } else {
+            permissionsManager = new PermissionsManager(this);
+            permissionsManager.requestLocationPermissions(this);
+        }
+    }
+
+
+    @Override
+    public void onExplanationNeeded(List<String> permissionsToExplain) {
+        Toast.makeText(this, R.string.user_location_permission_explanation, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onPermissionResult(boolean granted) {
+        if (granted) {
+            mMapboxMap.getStyle(new Style.OnStyleLoaded() {
+                @Override
+                public void onStyleLoaded(@NonNull Style style) {
+                    enableLocationComponent(style);
+                }
+            });
+        } else {
+            Toast.makeText(this, R.string.user_location_permission_not_granted, Toast.LENGTH_LONG).show();
+            finish();
+        }
+    }
+
+
 
     LocationListener locationListenerNetwork = new LocationListener() {
         @Override
@@ -614,16 +786,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         int id = item.getItemId();
 
         if (id == R.id.map_normal) {
-            mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-            removeHeatmap();
+           // mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+            //removeHeatmap();
 
         } else if (id == R.id.map_satelite) {
-            mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
-            removeHeatmap();
+          //  mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+            //removeHeatmap();
 
         } else if (id == R.id.map_hibrido)  {
-            mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
-            removeHeatmap();
+         //   mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+            //removeHeatmap();
 
         } else if (id == R.id.contaminacionmap)  {
 
@@ -638,7 +810,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return true;
     }
 
-    private void addHeatMap(){
+  /*  private void addHeatMap(){
 
         if(latLngList.size()!=0) {
             HeatmapTileProvider mProvider = new HeatmapTileProvider.Builder()
@@ -651,12 +823,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
 
     }
+    */
 
-    private void removeHeatmap(){
+  /*  private void removeHeatmap(){
         if(latLngList.size()!=0){
             mOverlay.remove();
         }
     }
+    */
 
     private void updateLabel() {
 
@@ -695,14 +869,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                                     List<Integer> PMlist = new ArrayList<>();
                                     PMlist = loc.getPMlist();
                                     int pm = PMlist.get(0);
-                                    WeightedLatLng data = new WeightedLatLng(latLng, pm);
-                                    latLngList.add(data);
+                                    //WeightedLatLng data = new WeightedLatLng(latLng, pm);
+                                    //latLngList.add(data);
                                 }
                             }
 
                             if(latLngList.size()== 0){
                                 Toast.makeText(mContext, "No hay datos para la fecha elegida", Toast.LENGTH_LONG).show(); } else {
-                                addHeatMap();
+                                //addHeatMap();
                                 }
 
                         }
